@@ -1,0 +1,24 @@
+---
+
+node:
+  name: config-testing
+
+path:
+  data: ./tmp_data/
+  config: ./conf.d/
+
+log:
+  level: 'info'
+
+pipeline:
+  ## Required for deterministic output order.
+  workers: 1
+
+config:
+
+  ## Required to be able to use single and double quotes in the same string.
+  support_escapes: True
+
+  reload:
+    automatic: True
+    interval: 1

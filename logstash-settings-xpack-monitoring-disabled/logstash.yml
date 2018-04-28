@@ -1,0 +1,28 @@
+---
+
+node:
+  name: config-testing
+
+path:
+  data: ./tmp_data/
+  config: ./conf.d/
+
+log:
+  level: 'info'
+
+pipeline:
+  ## Required for deterministic output order.
+  workers: 1
+
+config:
+  ## Required to be able to use single and double quotes in the same string.
+  support_escapes: True
+
+  reload:
+    automatic: True
+    interval: 1
+
+## If you have X-Pack installed, you probably want to disable it for this test
+## environment.
+## This line causes an error if X-Pack is not installed. Use `../logstash-settings/logstash.yml` for such cases.
+xpack.monitoring.enabled: False

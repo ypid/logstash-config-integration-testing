@@ -1,0 +1,13 @@
+## Only /conf.d/[4-6]* get pushed into production. The input and output parts
+## of the pipeline differ from test env to production. The filter part however
+## should be used as is in both environments.
++ /conf.d/
++ /conf.d/[4-6]*
+
+## Include files should be updated in the test env and then be deployed into production where possible.
+- /includes/Makefile
++ /includes/***
+
++ /patterns/***
+
+- *

@@ -1,0 +1,8 @@
+## Before adding patterns here, check if Logstash already ships with a suitable pattern.
+## Ref: /usr/share/logstash/vendor/bundle/jruby/1.9/gems/logstash-patterns-core-4.1.1/patterns
+
+DATA_NO_PIPE_SYM [^|]+?
+
+ZYPPER_ACTION_command command
+ZYPPER_ACTION_NOT_PARSING (?:radd|rremove)
+ZYPPER_ACTION_AND_ADDITIONS (?:%{ZYPPER_ACTION_command:action}\s*\|%{DATA_NO_PIPE_SYM:user}\s*|%{ZYPPER_ACTION_NOT_PARSING:action}\s*|%{WORD:action}\s*\|%{DATA_NO_PIPE_SYM:pkg_name}\s*\|%{DATA_NO_PIPE_SYM:pkg_version}\s*\|%{WORD:pkg_arch}\s*)

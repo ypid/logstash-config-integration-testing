@@ -1,0 +1,17 @@
+#!/bin/bash
+## @author Copyright (C) 2017-2018 Robin Schneider <robin.schneider@geberit.com>
+## @company Copyright (C) 2017-2018 Geberit Verwaltungs GmbH https://www.geberit.de
+## @license AGPL-3.0 <https://www.gnu.org/licenses/agpl-3.0.html>
+
+set -o nounset -o pipefail -o errexit
+
+deploy_to_hosts="${1:-shipper-a shipper-b}"
+
+echo -n "Deploy to $deploy_to_hosts ? Press return."
+# shellcheck disable=SC2034
+read -r fnord
+
+for host in $deploy_to_hosts; do
+    rsync --filter='. rsync_deploy_filter' --copy-links --recursive --verbose --prune-empty-dirs --filter='. logstash-config-integration-testing/rsync_deploy_filter' . "$host:/etc/logstash/"
+    rsync --copy-links --recursive --verbose --prune-empty-dirs ls_etc_deploy_parts/ "$host:/etc/logstash/"
+done

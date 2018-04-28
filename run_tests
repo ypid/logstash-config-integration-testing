@@ -1,0 +1,217 @@
+#!/bin/bash
+## @author Copyright (C) 2017-2018 Robin Schneider <robin.schneider@geberit.com>
+## @company Copyright (C) 2017-2018 Geberit Verwaltungs GmbH https://www.geberit.de
+## @license AGPL-3.0 <https://www.gnu.org/licenses/agpl-3.0.html>
+##
+## This program is free software: you can redistribute it and/or modify
+## it under the terms of the GNU Affero General Public License as
+## published by the Free Software Foundation, version 3 of the
+## License.
+##
+## This program is distributed in the hope that it will be useful,
+## but WITHOUT ANY WARRANTY; without even the implied warranty of
+## MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+## GNU Affero General Public License for more details.
+##
+## You should have received a copy of the GNU Affero General Public License
+## along with this program.  If not, see <https://www.gnu.org/licenses/>.
+
+set -o nounset -o pipefail -o errexit
+
+## Defaults
+sleep_time_for_logstash_flush=10
+
+if [ -e "run_tests.conf" ]; then
+    # shellcheck disable=SC1091
+    source "run_tests.conf"
+fi
+
+get_sources() {
+    ## Poor mans/womans quick and dirty parsing.
+    ## If Logstash would read something sane like YAML I would have properly parsed it with a nice jq/yq oneliner.
+    sed --regexp-extended --quiet 's/.*if\s*\[(_type|#?source)\]\s*==\s*["'']([^"'']+).*/\2/p;s/.*if\s*["'']([^"'']+)["'']\s*in\s*\[(_type|#?source)\].*/\1/p;' ./conf.d/*.conf | sort --unique
+}
+
+get_input_file() {
+    local test_case
+    test_case="$1"
+    local env
+    env="${2:-input}"
+
+    find "./${env}" -name "${test_case}.*" -print -quit
+}
+
+term_logstash() {
+    pkill -f 'logstash.*logstash-config-integration-testing'
+}
+
+gen_input_directive() {
+    local _type
+    local mode
+    local extra_input_directives
+    local extra_test_fields
+    local extra_prod_fields
+    local extra_fields
+    local input_codec
+    local dir_suffix
+    local env
+
+    _type="${1:-}"
+    mode="${2:-}"
+    env="${3:-test}"
+    extra_input_directives=''
+    input_codec='line'
+
+    dir_suffix="$(get_dir_suffix_for_mode "$mode")"
+
+    if [[ "$(get_input_file "$_type" "input$dir_suffix")" =~ .*\.json ]]; then
+        extra_input_directives+='
+  codec => json_lines'
+        input_codec='json_lines'
+    fi
+
+    extra_test_fields=" '[@metadata][test_mode]' => '${mode}' '[@metadata][input_codec]' => '${input_codec}'"
+    extra_prod_fields=""
+
+    if [ "$env" == "test" ]; then
+        extra_fields="$extra_test_fields"
+    else
+        extra_fields="$extra_prod_fields"
+    fi
+
+    cat <<EOF | sed --regexp-extended 's/^(\s*[^\s]+)/  \1/;'
+unix {
+  path => "./tmp_data/input_${_type}_${mode}.unix"
+  add_field => { "#source" => "${_type}" ${extra_fields} }${extra_input_directives}
+}
+
+EOF
+}
+
+gen_1_input_files_conf() {
+    local extra_input_directives
+    local env
+
+    env="${1:-test}"
+
+    echo -e "## This file is managed by logstash-config-integration-testing scripts, all changes will be lost.\n\n"
+    echo -e "input {\n"
+    get_sources | while read -r _type; do
+      gen_input_directive "$_type" 'selective' "$env"
+      gen_input_directive "$_type" 'bulk' "$env"
+    done
+    echo "}"
+}
+
+get_dir_suffix_for_mode() {
+    local mode
+    local dir_suffix
+
+    mode="${1:-}"
+
+    case $mode in
+      selective) echo "" ;;
+      *) echo "_${mode}" ;;
+    esac
+}
+
+exit_code=2
+
+filter_pattern="${1:-.}"
+mode="${2:-selective}"
+
+case $mode in
+  selective) ;;
+  bulk) ;;
+  *) echo "Unsupported mode: ${mode}" 1>&2; exit 1 ;;
+esac
+echo "Running in ${mode} mode."
+
+## Not required anymore. Logstash does autoreload and is intended to be kept running.
+# term_logstash
+
+# get_sources
+gen_1_input_files_conf 'test' > conf.d/1_input_unix_autogen.conf
+
+mkdir --parents "ls_etc_local_restore/conf.d"
+gen_1_input_files_conf 'prod' > ls_etc_local_restore/conf.d/1_input_unix_autogen.conf
+
+if ! pgrep -f 'logstash.*logstash-config-integration-testing' 1>/dev/null; then
+    echo "Now start logstash in a separate terminal using either:"
+    echo LS_ETC_BASE="." logstash --path.settings logstash-config-integration-testing/logstash-settings-xpack-monitoring-disabled/
+    echo LS_ETC_BASE="." logstash --path.settings logstash-config-integration-testing/logstash-settings/
+    echo "Press return"
+    read -r _
+fi
+
+dir_suffix="$(get_dir_suffix_for_mode "$mode")"
+rm -rf output_bulk output_archive/ output_tmp
+mkdir --parents "output${dir_suffix}"
+
+for test_case in ./"input${dir_suffix}"/*; do
+    # `test_case` is the name of the test without any directory prefixes or filename suffixes.
+    test_case="$(basename "$test_case")"
+    test_case="${test_case%.log}"
+    test_case="${test_case%.json}"
+
+    input_file="$(get_input_file "${test_case}" "input${dir_suffix}")"
+    input_socket="./tmp_data/input_${test_case}_${mode}.unix"
+    output_file_ns_after_mv="./output${dir_suffix}/${test_case}"
+    output_file="${output_file_ns_after_mv}.json"
+
+    if [[ ! $test_case =~ $filter_pattern ]]; then
+        echo "INFO: Skipping test case: $test_case (Did not match $filter_pattern)"
+        continue
+    fi
+
+    if [ ! -e "${input_file}" ]; then
+        echo "WARN: Can not run test case: $test_case (No input file found)" 1>&2
+        continue
+    fi
+
+    if [ ! -e "${input_socket}" ]; then
+        echo "WARN: Can not run test case: $test_case (No logstash socket file found)" 1>&2
+        continue
+    fi
+
+    echo -e "\nINFO: Running test case: $test_case (send input from file '${input_file}' to unix socket '${input_socket}'"
+    echo -e " and create outputfile '${output_file_ns_after_mv}*.json) ...\n"
+    # echo "Execute: rm -f ${output_file_ns_after_mv}*"
+    rm -f "${output_file_ns_after_mv}"*
+    socat - "UNIX-CONNECT:${input_socket}" < "$input_file"
+    exit_code=0
+done
+
+## Not required anymore. Logstash does autoreload and is intended to be kept running.
+# term_logstash
+
+## Refer to `flush_interval`. Does not guarantee that the write will be done in `flush_interval`.
+## FIXME: Logstash needs more time.
+sleep "$sleep_time_for_logstash_flush"
+
+find ./output_tmp -type f | while read -r output_file; do
+    mv "${output_file}" "./output${dir_suffix}/$(basename "${output_file}")"
+done
+rm -rf output_tmp
+
+## Generally KISSing is preferred but in this case we need to add a bit more complexity. Variantes tried before:
+## 1. egrep 'failure",?$' (requires pretty JSON)
+## 2. jq '. | select( has("#tags") and (.["#tags"][] | match("failure.,?$")) ) | .["#tags"][] ' --raw-output
+if ! ./logstash-config-integration-testing/check_for_logstash_failures.py --tag-field '#tags' --log-to-files ./"output${dir_suffix}"/*.json; then
+    if [ "$mode" == 'selective' ]; then
+        echo "INFO: Issues reported by Logstash in the [tags] field are expected in selective mode and don't cause the test to fail."
+        echo "INFO: Just be sure that each issue listed above is what you expected."
+    else
+        exit_code=1
+    fi
+fi
+
+for output_file in ./"output${dir_suffix}"/*.json ./"output${dir_suffix}"/.*.json; do
+    jq '.' "${output_file}" --sort-keys > "${output_file}.tmp"
+    mv "${output_file}.tmp" "${output_file}"
+done
+
+if [[ $exit_code != 0 ]]; then
+    echo "Issues occurred. Fix your config. Exiting with $exit_code."
+fi
+exit "$exit_code"
