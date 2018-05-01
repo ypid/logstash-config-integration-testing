@@ -60,6 +60,8 @@ concentrate on writing your Logstash configuration.
 * GNU/Linux host
 * Installed and basic knowledge: bash, git, make, rsync, jq, python3, ${EDITOR:-vim}
 * Logstash installed, v5.5.0 and above are recommended and used with this test environment
+  The test environment is currently only known to work with it's full feature set with Logstash v5.5.0.
+	Issue `rm conf.d/2_filter_remove_comment_lines.conf` in your test env if you are using 6.0+ for now.
 
 ## Setup
 

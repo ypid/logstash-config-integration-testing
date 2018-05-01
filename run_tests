@@ -206,7 +206,7 @@ if ! ./logstash-config-integration-testing/check_for_logstash_failures.py --tag-
     fi
 fi
 
-for output_file in ./"output${dir_suffix}"/*.json ./"output${dir_suffix}"/.*.json; do
+find "./output${dir_suffix}" -type f -iname '*.json' | while read -r output_file; do
     jq '.' "${output_file}" --sort-keys > "${output_file}.tmp"
     mv "${output_file}.tmp" "${output_file}"
 done
