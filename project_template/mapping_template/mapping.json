@@ -1,0 +1,199 @@
+{
+  "aliases": {},
+  "index_patterns": [
+    "logs_*"
+  ],
+  "mappings": {
+    "doc": {
+      "dynamic_templates": [
+        {
+          "type_long_fields": {
+            "mapping": {
+              "norms": false,
+              "type": "long"
+            },
+            "match_pattern": "regex",
+            "path_match": "^(?:#?doc\\.)?#?(?:scan_id|policy_id|session_id|logid|attackid|craction|crscore|incidentserialno|duration|stacount|rate|online_time|time_since_last_seen|count)$"
+          }
+        },
+        {
+          "type_integer_fields": {
+            "mapping": {
+              "norms": false,
+              "type": "integer"
+            },
+            "match_pattern": "regex",
+            "path_match": "^(?:#?doc\\.)?#?(?:signal|noise)$"
+          }
+        },
+        {
+          "type_short_fields": {
+            "mapping": {
+              "norms": false,
+              "type": "integer"
+            },
+            "match_pattern": "regex",
+            "path_match": "^(?:#?doc\\.)?#?(?:radioiddetected|radioidclosest|wlan_channel|apstatus)$"
+          }
+        },
+        {
+          "type_byte_fields": {
+            "mapping": {
+              "norms": false,
+              "type": "byte"
+            },
+            "match_pattern": "regex",
+            "path_match": "^(?:#?doc\\.)?#?(?:random|severity)$"
+          }
+        },
+        {
+          "ip_fields": {
+            "mapping": {
+              "type": "ip"
+            },
+            "match_pattern": "regex",
+            "path_match": "^(?:#?doc\\.)?#?(?:(?:tran_)?(?:local|remote|src|dst)_ip|event_data\\.IpAddress)$"
+          }
+        },
+        {
+          "tcpip_port_fields": {
+            "mapping": {
+              "norms": false,
+              "type": "integer"
+            },
+            "match_pattern": "regex",
+            "path_match": "^(?:#?doc\\.)?#?(:?(?:tran_)?(?:dst|src|remote)_port|event_data\\.IpPort)$"
+          }
+        },
+        {
+          "switch_port_fields": {
+            "mapping": {
+              "fields": {
+                "keyword": {
+                  "type": "keyword"
+                }
+              },
+              "norms": false,
+              "type": "text"
+            },
+            "match_pattern": "regex",
+            "path_match": "^(?:#?doc\\.)?#?port$"
+          }
+        },
+        {
+          "packet_count_fields": {
+            "mapping": {
+              "norms": false,
+              "type": "long"
+            },
+            "match_pattern": "regex",
+            "path_match": "^(?:#?doc\\.)?#?(?:sent|rcvd|received)_(?:pkt|packet)$"
+          }
+        },
+        {
+          "information_size_fields": {
+            "mapping": {
+              "norms": false,
+              "type": "long"
+            },
+            "match_pattern": "regex",
+            "path_match": "^(?:#?doc\\.)?#?(?:(?:sent|rcvd|received)_)?byte$"
+          }
+        },
+        {
+          "scaled_float_1000_fields": {
+            "mapping": {
+              "scaling_factor": 1000,
+              "type": "scaled_float"
+            },
+            "match_pattern": "regex",
+            "path_match": "^(?:#?doc\\.)?#?(?:elapsed_time)$"
+          }
+        },
+        {
+          "geojson_fields": {
+            "mapping": {
+              "type": "geo_point"
+            },
+            "match_pattern": "regex",
+            "path_match": "^(?:#?doc\\.)?#?.*geo.*\\.location$"
+          }
+        },
+        {
+          "timestamp_post_ms": {
+            "mapping": {
+              "norms": false,
+              "type": "integer"
+            },
+            "match_pattern": "regex",
+            "path_match": "^(?:#?doc\\.)?#?@timestamp_post_ms$"
+          }
+        },
+        {
+          "#logstash_timestamp": {
+            "mapping": {
+              "norms": false,
+              "type": "date"
+            },
+            "match_pattern": "regex",
+            "path_match": "^(?:#?doc\\.)?#?(?:@timestamp|logstash_timestamp)$"
+          }
+        },
+        {
+          "forced_string_fields": {
+            "mapping": {
+              "fields": {
+                "keyword": {
+                  "type": "keyword"
+                }
+              },
+              "norms": false,
+              "type": "text"
+            },
+            "match_pattern": "regex",
+            "path_match": "^(?:#?doc\\.)?#?(?:version)$"
+          }
+        },
+        {
+          "message_field": {
+            "mapping": {
+              "fields": {
+                "keyword": {
+                  "type": "keyword"
+                }
+              },
+              "norms": false,
+              "type": "text"
+            },
+            "match": "msg",
+            "match_mapping_type": "string"
+          }
+        },
+        {
+          "string_fields": {
+            "mapping": {
+              "fields": {
+                "keyword": {
+                  "type": "keyword"
+                }
+              },
+              "norms": false,
+              "type": "text"
+            },
+            "match": "*",
+            "match_mapping_type": "string"
+          }
+        }
+      ]
+    }
+  },
+  "order": 100,
+  "settings": {
+    "index": {
+      "number_of_replicas": "0",
+      "number_of_shards": "1",
+      "refresh_interval": "10s"
+    }
+  },
+  "version": 5000
+}
