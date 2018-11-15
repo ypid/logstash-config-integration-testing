@@ -13,5 +13,5 @@ mapping.json: FORCE_MAKE
 	curl $(CURL_OPTIONS) -XGET "$(CURL_URL_SERVER)/_template/logs_default" | jq '.logs_default' --sort-keys > "$@"
 
 .PHONY: push
-push: mapping.json FORCE_MAKE
-	curl $(CURL_OPTIONS) -XPOST -H "Content-Type: application/json" "$(CURL_URL_SERVER)/_template/logs_default" -d "@$<"
+push: FORCE_MAKE
+	curl $(CURL_OPTIONS) -XPOST -H "Content-Type: application/json" "$(CURL_URL_SERVER)/_template/logs_default" -d "@mapping.json"

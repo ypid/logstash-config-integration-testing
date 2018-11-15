@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 ## @author Copyright (C) 2017-2018 Robin Schneider <robin.schneider@geberit.com>
 ## @company Copyright (C) 2017-2018 Geberit Verwaltungs GmbH https://www.geberit.de
-## @license AGPL-3.0 <https://www.gnu.org/licenses/agpl-3.0.html>
+## @license AGPL-3.0-only <https://www.gnu.org/licenses/agpl-3.0.html>
 ##
 ## This program is free software: you can redistribute it and/or modify
 ## it under the terms of the GNU Affero General Public License as
@@ -16,7 +16,7 @@
 ## You should have received a copy of the GNU Affero General Public License
 ## along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-__license__ = 'AGPL-3.0'
+__license__ = 'AGPL-3.0-only'
 __author__ = 'Robin Schneider <robin.schneider@geberit.com>'
 __version__ = '0.5.0'
 
@@ -33,6 +33,7 @@ from collections import defaultdict
 def find_and_update_issues(obj, issues, tag_field):
     tags_to_exclude = set([
         '_geoip_lookup_failure',
+        '_host_location_parsefailure',
     ])
 
     if tag_field in obj:

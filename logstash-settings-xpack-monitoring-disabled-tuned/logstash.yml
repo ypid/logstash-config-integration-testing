@@ -11,8 +11,8 @@ log:
   level: 'info'
 
 pipeline:
-  ## Required for deterministic output order.
-  workers: 1
+  workers: 16
+pipeline.batch.size: 1000
 
 config:
   ## Required to be able to use single and double quotes in the same string.

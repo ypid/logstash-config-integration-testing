@@ -17,7 +17,7 @@ pipeline:
 config:
 
   ## Required to be able to use single and double quotes in the same string.
-  support_escapes: True
+  # support_escapes: True
 
   reload:
     automatic: True

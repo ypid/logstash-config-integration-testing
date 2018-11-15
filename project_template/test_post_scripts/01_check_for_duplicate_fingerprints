@@ -1,0 +1,36 @@
+#!/bin/bash
+## @author Copyright (C) 2018 Robin Schneider <robin.schneider@geberit.com>
+## @company Copyright (C) 2018 Geberit Verwaltungs GmbH https://www.geberit.de
+## @license AGPL-3.0-only <https://www.gnu.org/licenses/agpl-3.0.html>
+
+set -o nounset -o pipefail -o errexit
+
+
+find output -type f -iname '*.json' | while read -r file
+do
+    duplicate_ids="$(jq '._id' "$file" | grep --invert-match --perl-regexp '^"(?:[#_])' | sort | uniq --repeated)"
+    duplicates_expected=0
+    if [[ $file =~ .*(CHANGEME).* ]]; then
+        duplicates_expected=1
+    fi
+    if [[ -n "$duplicate_ids" ]] && [[ "$duplicates_expected" == "0" ]]; then
+        echo "ERROR: Duplicate IDs found in file $file: $duplicate_ids" 1>&2
+        exit 1
+    fi
+    if [[ -z "$duplicate_ids" ]] && [[ "$duplicates_expected" == "1" ]]; then
+        echo "ERROR: No duplicate IDs found in file $file" 1>&2
+        exit 1
+    fi
+done
+
+## Checking IDs across all outputs.
+# shellcheck disable=SC2046
+duplicate_ids="$(jq '._id' $(find output -type f -regextype posix-egrep -iname '*.json' -not -iregex '.*(CHANGEME).*') | grep --invert-match --perl-regexp '^"(?:[#_])' | sort | uniq --repeated)"
+if [[ -n "$duplicate_ids" ]]; then
+    echo "ERROR: Duplicate IDs found: $duplicate_ids" 1>&2
+    exit 1
+fi
+
+# shellcheck disable=SC2046
+
+exit 0

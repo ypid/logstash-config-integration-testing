@@ -19,6 +19,6 @@ pipeline:
 ## This line causes an error if X-Pack is not installed. Use `../logstash-settings/logstash.yml` for such cases.
 xpack.monitoring.enabled: False
 
-config:
+# config:
   ## Required to be able to use single and double quotes in the same string.
-  support_escapes: True
+  # support_escapes: True

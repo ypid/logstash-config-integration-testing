@@ -1,7 +1,7 @@
 #!/bin/bash
 ## @author Copyright (C) 2017-2018 Robin Schneider <robin.schneider@geberit.com>
 ## @company Copyright (C) 2017-2018 Geberit Verwaltungs GmbH https://www.geberit.de
-## @license AGPL-3.0 <https://www.gnu.org/licenses/agpl-3.0.html>
+## @license AGPL-3.0-only <https://www.gnu.org/licenses/agpl-3.0.html>
 ##
 ## This program is free software: you can redistribute it and/or modify
 ## it under the terms of the GNU Affero General Public License as
@@ -29,7 +29,7 @@ fi
 get_sources() {
     ## Poor mans/womans quick and dirty parsing.
     ## If Logstash would read something sane like YAML I would have properly parsed it with a nice jq/yq oneliner.
-    sed --regexp-extended --quiet 's/.*if\s*\[(_type|#?source)\]\s*==\s*["'']([^"'']+).*/\2/p;s/.*if\s*["'']([^"'']+)["'']\s*in\s*\[(_type|#?source)\].*/\1/p;' ./conf.d/*.conf | sort --unique
+    sed --regexp-extended --quiet 's/.*if\s*\[(_type|#?source)\]\s*(==|in)\s*\[?\s*["'']([^"'']+\s*\]?).*/\3/p;s/.*if\s*["'']([^"'']+)["'']\s*(in|==)\s*\[(_type|#?source)\].*/\1/ p;' ./conf.d/*.conf | sort --unique
 }
 
 get_input_file() {
@@ -64,7 +64,8 @@ gen_input_directive() {
 
     dir_suffix="$(get_dir_suffix_for_mode "$mode")"
 
-    if [[ "$(get_input_file "$_type" "input$dir_suffix")" =~ .*\.json ]]; then
+    ## We expect that ./input/ contains inputs for all sources.
+    if [[ "$(get_input_file "$_type" "input")" =~ .*\.json ]]; then
         extra_input_directives+='
   codec => json_lines'
         input_codec='json_lines'
@@ -175,7 +176,7 @@ for test_case in ./"input${dir_suffix}"/*; do
     fi
 
     echo -e "\nINFO: Running test case: $test_case (send input from file '${input_file}' to unix socket '${input_socket}'"
-    echo -e " and create outputfile '${output_file_ns_after_mv}*.json) ...\n"
+    echo -e " and create outputfile '${output_file_ns_after_mv}*.json') ...\n"
     # echo "Execute: rm -f ${output_file_ns_after_mv}*"
     rm -f "${output_file_ns_after_mv}"*
     socat - "UNIX-CONNECT:${input_socket}" < "$input_file"
@@ -210,6 +211,15 @@ find "./output${dir_suffix}" -type f -iname '*.json' | while read -r output_file
     jq '.' "${output_file}" --sort-keys > "${output_file}.tmp"
     mv "${output_file}.tmp" "${output_file}"
 done
+
+if [[ -e "./test_post_scripts" ]]; then
+	for file in $(find "./test_post_scripts" -type f -or -type l | sort)
+	do
+		if ! "./$file"; then
+            exit_code=1
+        fi
+	done
+fi
 
 if [[ $exit_code != 0 ]]; then
     echo "Issues occurred. Fix your config. Exiting with $exit_code."

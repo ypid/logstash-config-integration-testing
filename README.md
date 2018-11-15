@@ -141,9 +141,9 @@ Install the test-config to real-world Logstash servers:
 * `sleep` duration might need to be increased for Logstash to write the events out in time before `./run_tests` does it’s post processing. `./run_tests` will source `./run_tests.conf` if it is present in the current working directory where `sleep_time_for_logstash_flush` can be adjusted.
 * Support for [Multiple pipelines in Logstash](https://www.elastic.co/blog/logstash-multiple-pipelines).
 
-# License
+## License
 
-[AGPL-3.0](https://www.gnu.org/licenses/agpl-3.0.html)
+[AGPL-3.0-only](https://www.gnu.org/licenses/agpl-3.0.html)
 
 * Author Copyright (C) 2017-2018 Robin Schneider
 * Company Copyright (C) 2017-2018 [Geberit Verwaltungs GmbH](https://www.geberit.de)
