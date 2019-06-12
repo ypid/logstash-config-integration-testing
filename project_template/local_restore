@@ -1,0 +1,30 @@
+#!/bin/bash
+
+LS_UNIX_SOCKET_DIR="/root/logstash-test/tmp_data"
+# LS_UNIX_SOCKET_DIR="/var/lib/logstash/unix_sockets"
+
+find /var/log -newermt '2019-03-13 08:15' -iname 'log-2019-03-13_*' | sort | while read -r input_file; do
+
+    case "$input_file" in
+        */curator*.json*)          logstash_source='curator' ;;
+        */e2e-checklog*.json*)     logstash_source='e2e-tests' ;;
+        */e2e-tests*.json*)        logstash_source='e2e-tests' ;;
+        *)
+            echo "No logstash definition for $input_file, skipping" 1>&2
+            continue
+            ;;
+    esac
+
+    case "$input_file" in
+        *.gz) decomp_command='zcat'  ;;
+        *.xz) decomp_command='xzcat' ;;
+        *)    decomp_command='cat'   ;;
+        # *)
+        #     echo " $input_file, skipping" 1>&2
+        #     continue
+        #     ;;
+    esac
+
+    echo "$(date --rfc-3339=seconds) Beginning to pipe logfile ${input_file} with command $decomp_command into logstash as source $logstash_source."
+    $decomp_command "$input_file" | socat - "UNIX-CONNECT:${LS_UNIX_SOCKET_DIR}/input_${logstash_source}_bulk.unix"
+done

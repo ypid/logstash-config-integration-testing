@@ -1,6 +1,6 @@
 #!/bin/bash
-## @author Copyright (C) 2017-2018 Robin Schneider <robin.schneider@geberit.com>
-## @company Copyright (C) 2017-2018 Geberit Verwaltungs GmbH https://www.geberit.de
+## @author Copyright (C) 2017-2019 Robin Schneider <robin.schneider@geberit.com>
+## @company Copyright (C) 2017-2019 Geberit Verwaltungs GmbH https://www.geberit.de
 ## @license AGPL-3.0-only <https://www.gnu.org/licenses/agpl-3.0.html>
 ##
 ## This program is free software: you can redistribute it and/or modify
@@ -29,7 +29,9 @@ fi
 get_sources() {
     ## Poor mans/womans quick and dirty parsing.
     ## If Logstash would read something sane like YAML I would have properly parsed it with a nice jq/yq oneliner.
-    sed --regexp-extended --quiet 's/.*if\s*\[(_type|#?source)\]\s*(==|in)\s*\[?\s*["'']([^"'']+\s*\]?).*/\3/p;s/.*if\s*["'']([^"'']+)["'']\s*(in|==)\s*\[(_type|#?source)\].*/\1/ p;' ./conf.d/*.conf | sort --unique
+    ## We ignore commented out lines because they might be too long for Unix sockets :-/
+    ## Ref: https://stackoverflow.com/questions/34829600/why-is-the-maximal-path-length-allowed-for-unix-sockets-on-linux-108
+    sed --regexp-extended --quiet 's/^[^#]*if\s*\[(_type|#?source)\]\s*(==|in)\s*\[?\s*["'']([^"'']+\s*\]?).*/\3/p;s/^[^#]*if\s*["'']([^"'']+)["'']\s*(in|==)\s*\[(_type|#?source)\].*/\1/ p;' ./conf.d/*.conf | sort --unique
 }
 
 get_input_file() {
@@ -59,16 +61,14 @@ gen_input_directive() {
     _type="${1:-}"
     mode="${2:-}"
     env="${3:-test}"
+    input_codec="${4:-line}"
     extra_input_directives=''
-    input_codec='line'
 
     dir_suffix="$(get_dir_suffix_for_mode "$mode")"
 
-    ## We expect that ./input/ contains inputs for all sources.
-    if [[ "$(get_input_file "$_type" "input")" =~ .*\.json ]]; then
+    if [ "$input_codec" == "json_lines" ]; then
         extra_input_directives+='
   codec => json_lines'
-        input_codec='json_lines'
     fi
 
     extra_test_fields=" '[@metadata][test_mode]' => '${mode}' '[@metadata][input_codec]' => '${input_codec}'"
@@ -82,7 +82,7 @@ gen_input_directive() {
 
     cat <<EOF | sed --regexp-extended 's/^(\s*[^\s]+)/  \1/;'
 unix {
-  path => "./tmp_data/input_${_type}_${mode}.unix"
+  path => "./tmp_data/input_${_type}_${mode}_${input_codec}.unix"
   add_field => { "#source" => "${_type}" ${extra_fields} }${extra_input_directives}
 }
 
@@ -100,6 +100,8 @@ gen_1_input_files_conf() {
     get_sources | while read -r _type; do
       gen_input_directive "$_type" 'selective' "$env"
       gen_input_directive "$_type" 'bulk' "$env"
+      gen_input_directive "$_type" 'selective' "$env" "json_lines"
+      gen_input_directive "$_type" 'bulk' "$env" "json_lines"
     done
     echo "}"
 }
@@ -146,17 +148,24 @@ if ! pgrep -f 'logstash.*logstash-config-integration-testing' 1>/dev/null; then
 fi
 
 dir_suffix="$(get_dir_suffix_for_mode "$mode")"
-rm -rf output_bulk output_archive/ output_tmp
+rm -rf output_bulk output_archive output_tmp
 mkdir --parents "output${dir_suffix}"
 
-for test_case in ./"input${dir_suffix}"/*; do
+for input_file in ./"input${dir_suffix}"/*; do
     # `test_case` is the name of the test without any directory prefixes or filename suffixes.
-    test_case="$(basename "$test_case")"
+    echo "$input_file"
+    test_case="$(basename "$input_file")"
+    file_extension="${test_case#**.}"
     test_case="${test_case%.log}"
     test_case="${test_case%.json}"
 
-    input_file="$(get_input_file "${test_case}" "input${dir_suffix}")"
-    input_socket="./tmp_data/input_${test_case}_${mode}.unix"
+    input_codec="line"
+
+    if [ "$file_extension" == "json" ]; then
+	input_codec="json_lines"
+    fi
+
+    input_socket="./tmp_data/input_${test_case}_${mode}_${input_codec}.unix"
     output_file_ns_after_mv="./output${dir_suffix}/${test_case}"
     output_file="${output_file_ns_after_mv}.json"
 

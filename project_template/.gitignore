@@ -3,5 +3,9 @@ tmp_data
 conf.d/*autogen*.conf
 output_bulk/
 output_archive/
-output_bulk/
+output_bulk/*
+!output_bulk/*.issues
 output_all/
+output_tmp/
+
+ls_etc_local_restore/

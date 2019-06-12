@@ -1,6 +1,6 @@
 #!/bin/bash
-## @author Copyright (C) 2017-2018 Robin Schneider <robin.schneider@geberit.com>
-## @company Copyright (C) 2017-2018 Geberit Verwaltungs GmbH https://www.geberit.de
+## @author Copyright (C) 2017-2019 Robin Schneider <robin.schneider@geberit.com>
+## @company Copyright (C) 2017-2019 Geberit Verwaltungs GmbH https://www.geberit.de
 ## @license AGPL-3.0-only <https://www.gnu.org/licenses/agpl-3.0.html>
 
 set -o nounset -o pipefail -o errexit
@@ -12,6 +12,26 @@ echo -n "Deploy to $deploy_to_hosts ? Press return."
 read -r fnord
 
 for host in $deploy_to_hosts; do
-    rsync --filter='. rsync_deploy_filter' --copy-links --recursive --verbose --prune-empty-dirs --filter='. logstash-config-integration-testing/rsync_deploy_filter' . "$host:/etc/logstash/"
-    rsync --copy-links --recursive --verbose --prune-empty-dirs ls_etc_deploy_parts/ "$host:/etc/logstash/"
+    temp_prepare_path="$(mktemp --directory)"
+    if [ "$host" == "ls_etc_local_restore" ]; then
+        target_path="./ls_etc_local_restore"
+    else
+        target_path="$host:/etc/logstash/"
+    fi
+    rsync --filter='. rsync_deploy_filter' --copy-links --recursive --prune-empty-dirs --filter='. logstash-config-integration-testing/rsync_deploy_filter' . "${temp_prepare_path}"
+    rsync --copy-links --recursive --prune-empty-dirs ls_etc_deploy_parts/ "${temp_prepare_path}"
+    if [ "$host" == "ls_etc_local_restore" ]; then
+        rm "${temp_prepare_path}"/conf.d/1_input*.conf
+    fi
+    host_specific_ls_etc_deploy_parts="ls_etc_deploy_parts_$host/"
+    test -d "$host_specific_ls_etc_deploy_parts" && rsync --copy-links --recursive --prune-empty-dirs "$host_specific_ls_etc_deploy_parts/" "${temp_prepare_path}"
+
+    for ls_dir in "conf.d" "includes" "patterns"; do
+        if [ -e "${temp_prepare_path}/${ls_dir}" ]; then
+            rsync --checksum --copy-links --recursive --prune-empty-dirs --delete --exclude '*managed_outside_of_logstash-test*' "${temp_prepare_path}/${ls_dir}" "${target_path}"
+        fi
+    done
+    rm -rf "${temp_prepare_path}"
 done
+
+exit 0
