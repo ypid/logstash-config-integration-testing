@@ -1,5 +1,13 @@
 # Logstash pipeline integration testing
 
+## This project is deprecated
+
+*https://github.com/geberit/event-processing-framework has been published which
+replaces this project. There is nothing to be done here anymore. The new
+solution is superior in so many ways.*
+
+## Intro
+
 Make integration testing of Logstash configuration easily usable for sysadmins.
 
 When using the [Elastic Stack for Log
